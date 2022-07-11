@@ -1,0 +1,237 @@
+# -*- coding: utf-8 -*-
+"""
+Created on Sun Jul 10 19:30:40 2022
+
+@author: VicBoxMS
+"""
+
+def KDROP3(X,y,gamma_rbf=0.001):  
+  """
+  Funcion KDROP3, tiene como objetivo reducir el numero de instancias
+  utilizando una distancia en el espacio de caractetisticas  
+  Se considera en la primera etapa del algoritmo un filtro ENN basado en
+  la distancia euclideana.
+  En la segunda etapa del algoritmo se utiliza la distancia en el espacio de 
+  caracteristicas
+  -Entrada- 
+  X: Matriz de nxp tal que n es el numero de observaciones y p el numero de 
+  caracteristicas
+  y: Vector de etiquetas de longitud n correspondiente a cada una de las 
+  observaciones de X.
+  gamma_rbf: corresponde al parametro que utiliza la función kernel rbf,
+  el rango del parametro es (0,+ inf )
+  """  
+  parametro_k=3
+  parametro_k_filtro_enn=3
+  ##Validacion del numero de clases
+  conteo = np.unique(y,return_index=True,return_counts=True)
+  clase_menor = np.argmin(conteo[2])
+  if len(conteo[0])>1 and conteo[2][clase_menor]<=3:
+    return(np.append(X[list(conteo[1])],np.array(y[list(conteo[1])]).reshape(-1,1),axis=1))
+
+  k = 1
+              #Escalamiento interno para realizar la selección de instancias
+  datosTrain = X
+  clasesTrain = y
+  nClases = 0 #Contar el numero de clases diferentes que tenemos 
+  for i in range(len(clasesTrain)):
+    if clasesTrain[i]>nClases:
+      nClases = clasesTrain[i];
+  nClases+=1
+
+              #Inicializar el vector nearest como -1's
+  nearest = np.random.randint(1, size=(len(datosTrain),k))-1
+
+              #Inicializamos al conjunto S como un conjunto vacio
+              # y tamS es un contador del nunero de elementos en S
+  MAX_VALUE= 1000000000 
+#  S = np.random.randint(1, size=(len(datosTrain)))+MAX_VALUE
+#  tamS = 0
+
+              #Inicializamos a dS como las observaciones mas cercanas 
+              #a los centroides
+  deltaS = []
+  for i in range(int(nClases)):
+    nCentroid = 0;
+    centroid = np.zeros(len(datosTrain[0]))
+    for j in range(len(datosTrain)):
+      if clasesTrain[j]==i: 
+        for l in range(len(datosTrain[j])):
+          centroid[l] += datosTrain[j][l];
+        nCentroid+=1;
+    for j in range(len(centroid)):
+      centroid[j] /= nCentroid
+    pos = -1;
+    minDist = MAX_VALUE
+    for j in range(len(datosTrain)):
+      if (clasesTrain[j]==i):
+          dist = np.linalg.norm(centroid-datosTrain[j])
+          if dist<minDist:
+            minDist = dist
+            pos = j
+    if (pos>=0):
+      deltaS.append(pos)
+
+              #Validacion de numero de clases diferentes
+  if (nClases < 2):
+      print("Una clase");
+      nClases = 1;
+      return np.append(X[int(deltaS[0]):int(deltaS[0]+1)],np.array(y[int(deltaS[0]):int(deltaS[0]+1)]).reshape(-1,1),axis=1)
+  ##Termina validacion
+
+  def knn_euclideana(xTrain, xTest, k):
+      """
+      Encuentra los k vecinos mas cercanos de Xtest en Xtrain
+      Entrada:
+      xTrain = n x p
+      xTest = m x p
+      k = numero de vecinos a considerar
+      Salida:
+      dists = distancias entre xTrain y xTest de tamaño Size of n x m
+      indices = matriz de kxm con los indices correspondientes a Xtrain
+      """
+      distances = euclidean_distances(xTrain,xTest)
+      distances[distances < 0] = 0
+      indices = np.argsort(distances, 0) #get indices of sorted items
+      distances = np.sort(distances,0)   #distances sorted in axis 0
+      #returning the top-k closest distances.
+      return indices[0:k, : ].T , distances[0:k, : ].T  #
+
+  def knn_predictions_euclideana(xTrain,yTrain,xTest,k):
+      """
+      Entrada
+      xTrain : n x p matriz. n=renglones p=caracteristicas
+      yTrain : n x 1 vector. n=renglones de etiquetas de clase
+      xTest : m x p matriz. m=renglones
+      k : Numero de vecinos mas cercanos
+      Salida
+      predictions : etiquetas predichas para los m renglones de xTest 
+      distancia : euclideana, rbf and poly
+      """
+
+      indices, distances = knn_euclideana(xTrain,xTest,k)    
+      yTrain = yTrain.flatten()
+      rows,columns  = indices.shape
+      predictions = list()
+      for j in range(rows):
+          temp = list()
+          for i in range(columns):
+              cell = indices[j][i]
+              temp.append(yTrain[cell])
+          predictions.append(max(temp,key=temp.count)) #this is the key function, brings the mode value
+      predictions=np.array(predictions)
+      return predictions
+
+  def knn_rbf(xTrain, xTest, k,gamma_rbf):
+      """
+      """
+      distances = distancia_kernel_rbf(xTrain,xTest,gamma_rbf)
+      distances[distances < 0] = 0
+      indices = np.argsort(distances, 0) #get indices of sorted items
+      distances = np.sort(distances,0)   #distances sorted in axis 0
+      #returning the top-k closest distances.
+      return indices[0:k, : ].T , distances[0:k, : ].T  #
+
+  knn = knn_rbf
+
+  def knn_predictions(xTrain,yTrain,xTest,k,gamma_rbf):
+      """
+      Entrada
+      xTrain : n x p matriz. n=renglones p=caracteristicas
+      yTrain : n x 1 vector. n=renglones de etiquetas de clase
+      xTest : m x p matriz. m=renglones
+      k : Numero de vecinos mas cercanos
+      Salida
+      predictions : etiquetas predichas para los m renglones de xTest 
+      distancia : euclideana, rbf and poly
+      """
+
+      indices, distances = knn_rbf(xTrain,xTest,k,gamma_rbf)    
+      yTrain = yTrain.flatten()
+      rows,columns  = indices.shape
+      predictions = list()
+      for j in range(rows):
+          temp = list()
+          for i in range(columns):
+              cell = indices[j][i]
+              temp.append(yTrain[cell])
+          predictions.append(max(temp,key=temp.count)) #this is the key function, brings the mode value
+      predictions=np.array(predictions)
+      return predictions
+
+  def distancias_enemigomascercano(X_filtrado,y_filtrado,gamma_rbf):
+    """
+    Funcion que computa para cada instancia la instancia 
+    mas cercana de etiqueta diferente a el
+    """
+    vecinos,distancias = knn_euclideana(X_filtrado, X_filtrado, k = X_filtrado.shape[0])
+    def indice_enemigo(row,yvalues=y_filtrado):
+      for c,i in enumerate(row):
+        if yvalues[row[0]]!=yvalues[i]:
+          return(c)
+          break
+    indice_ene=np.apply_along_axis(indice_enemigo,1,vecinos)
+    distancia_enemigo=np.zeros(len(distancias))
+    for i in range(len(distancias)):
+      distancia_enemigo[i]=distancias[i][indice_ene[i]]
+    return distancia_enemigo
+
+  def suponer_no_esta(T,T_label,indice,parametro_k,gamma_rbf):
+    """
+    La idea es calcular el numero de observaciones correctamente clasificados
+    cuando la i-esima instancia no esta en el conjunto de entrenamiento
+    """
+    T_virt=T.copy()
+    T_virt[indice]=np.repeat(1000,T.shape[1])
+    pnearest_virt , dd = knn(T_virt, T, parametro_k,gamma_rbf)
+    n_filtrado=X_filtrado.shape[0]
+    pasociados_virt=[[] for i in range(n_filtrado)]
+    return sum(T_label[pnearest[pasociados[indice]][:,1]]==T_label[pnearest_virt[pasociados[indice]][:,-1]])
+
+  def no_esta(T,T_label,indice,parametro_k,gamma_rbf):
+    T_virt=T.copy()
+    T_virt[indice]=np.repeat(1000000,T.shape[1])
+    pnearest_virt , dd = knn(T_virt, T, parametro_k,gamma_rbf)
+    n_filtrado=X_filtrado.shape[0]
+    pasociados_virt=[[] for i in range(n_filtrado)]
+    for i in range(n_filtrado):
+      for j in pnearest[i]:
+          if i!=j:
+            pasociados_virt[j].append(i)  
+    return T_virt,pnearest_virt,pasociados_virt
+
+
+################################################################################Comienza algoritmo
+  ###########Filtro ENN  
+  y_estimado=knn_predictions_euclideana(X,y,X,parametro_k_filtro_enn)
+  X_filtrado=X[y==y_estimado]
+  y_filtrado=y[y==y_estimado]
+  indices_filtrado=list(range(len(y_filtrado)))
+  #############Ordenar
+  d=distancias_enemigomascercano(X_filtrado,y_filtrado,gamma_rbf=gamma_rbf)
+  y_filtrado=y_filtrado[np.argsort(d)[::-1]]  #Primero los mas alejados, al final los puntos fronterizos
+  X_filtrado=X_filtrado[np.argsort(d)[::-1]]
+  T=X_filtrado
+  T_label=y_filtrado
+  pnearest,dd = knn(T, T, k = parametro_k,gamma_rbf=gamma_rbf)
+  n_filtrado=X_filtrado.shape[0]
+  pasociados=[[] for i in range(n_filtrado)]
+  for i in range(n_filtrado):
+    for j in pnearest[i]:
+        if i!=j:
+          pasociados[j].append(i)
+
+  recolector1=[]#tqdm
+  for i in (range(len(X_filtrado))):
+    if len(pasociados[i])>0:
+      with_=sum(y_filtrado[i]==y_filtrado[pasociados[i]])
+      without_=suponer_no_esta(T=T,T_label=T_label,indice=i,parametro_k=parametro_k,gamma_rbf=gamma_rbf)
+    else:
+      without_=0
+      with_=30
+    if without_-with_>=0:
+      recolector1.append(i)
+      T,pnearest,pasociados=no_esta(T=T,T_label=T_label,indice=i,parametro_k=parametro_k,gamma_rbf=gamma_rbf)
+  id_select=set(range(len(X_filtrado)))-set(recolector1)
+  id_select=list(id_select)
+  return np.append(X_filtrado[id_select] , (y_filtrado[id_select]).reshape(-1,1),axis=1)
