@@ -1,0 +1,1 @@
+Se separan scripts para cada uno de los metodos de selección de instancias, notese que el punto de partida son FCNN y DROP3, mientras que KFCNN, KPCAFCNN, KDROP3 &  KPCADROP3  son modificaciones puntuales.
